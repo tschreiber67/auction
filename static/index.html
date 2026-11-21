@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Dynamic Auction Simulator</title>
+<style>
+body{font:14px system-ui,sans-serif;margin:20px;color:#1b2430;background:#f6f7f9}
+h1{font-size:20px;margin:0 0 12px}
+.bar{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:16px}
+label{display:flex;flex-direction:column;font-size:12px;color:#556}
+input,select,button{font:inherit;padding:4px 6px}
+button{background:#1f5fbf;color:#fff;border:0;border-radius:4px;padding:6px 14px;cursor:pointer}
+table{border-collapse:collapse;background:#fff;margin-bottom:16px}
+th,td{border:1px solid #d5d9e0;padding:4px 10px;text-align:right}
+th:first-child,td:first-child,th:last-child{text-align:left}
+.card{background:#fff;border:1px solid #d5d9e0;border-radius:6px;padding:10px;margin:0 12px 12px 0;display:inline-block;vertical-align:top}
+.card h3{margin:0 0 6px;font-size:14px}
+#err{color:#b00020}
+</style></head><body>
+<h1>Dynamic Auction Simulator <small>(synthetic bidders, notional prices)</small></h1>
+<div class="bar">
+<label>Seed<input id="seed" type="number" value="1" min="0" style="width:90px"></label>
+<label>Bidders<input id="bidders" type="number" value="24" min="1" max="500" style="width:70px"></label>
+<label>Mode<select id="mode"><option value="clock">Ascending clock</option><option value="sealed">Sealed uniform</option></select></label>
+<label>Clock step (cents)<input id="step" type="number" value="10" min="1" style="width:80px"></label>
+<button id="run">Clear market</button><span id="err"></span>
+</div>
+<div id="totals"></div>
+<table id="tbl"><thead><tr><th>Good</th><th>Supply</th><th>Price (c)</th><th>Sold</th><th>Unsold</th><th>Rationed</th><th>Revenue (c)</th><th>Efficiency</th><th>Winners</th></tr></thead><tbody></tbody></table>
+<div id="charts"></div>
+<script>
+const $=id=>document.getElementById(id);
+function chart(r){
+  const W=320,H=150,P=28,rs=r.rounds;
+  if(!rs.length) return '<div class="card"><h3>'+r.good+'</h3>Sealed bid: no clock rounds</div>';
+  const xs=rs.map(a=>a.price),ys=rs.map(a=>a.demand);
+  const x0=Math.min(...xs),x1=Math.max(...xs)||1,y1=Math.max(...ys,r.supply)||1;
+  const X=v=>P+(x1===x0?0:(v-x0)/(x1-x0))*(W-P-6),Y=v=>H-P-(v/y1)*(H-P-8);
+  const pts=rs.map(a=>X(a.price)+','+Y(a.demand)).join(' ');
+  return '<div class="card"><h3>'+r.good+' demand vs clock price</h3><svg width="'+W+'" height="'+H+'">'+
+   '<line x1="'+P+'" y1="'+(H-P)+'" x2="'+W+'" y2="'+(H-P)+'" stroke="#999"/><line x1="'+P+'" y1="6" x2="'+P+'" y2="'+(H-P)+'" stroke="#999"/>'+
+   '<line x1="'+P+'" x2="'+W+'" y1="'+Y(r.supply)+'" y2="'+Y(r.supply)+'" stroke="#c0392b" stroke-dasharray="4"/>'+
+   '<polyline fill="none" stroke="#1f5fbf" stroke-width="2" points="'+pts+'"/>'+rs.map(a=>'<circle cx="'+X(a.price)+'" cy="'+Y(a.demand)+'" r="3" fill="#1f5fbf"/>').join('')+
+   '<text x="'+P+'" y="'+(H-10)+'" font-size="10">'+x0+'</text><text x="'+(W-30)+'" y="'+(H-10)+'" font-size="10">'+x1+'</text>'+
+   '<text x="2" y="12" font-size="10">'+y1+'</text><text x="'+(P+4)+'" y="'+(Y(r.supply)-3)+'" font-size="10" fill="#c0392b">supply '+r.supply+'</text></svg></div>';
+}
+async function run(){
+  $('err').textContent='';
+  const q=new URLSearchParams({seed:$('seed').value,bidders:$('bidders').value,mode:$('mode').value,step:$('step').value});
+  const res=await fetch('/api/clear?'+q), j=await res.json();
+  if(!res.ok){$('err').textContent=j.error;return;}
+  const t=j.totals;
+  $('totals').innerHTML='<p><b>Revenue</b> '+t.revenue+' c &nbsp; <b>Sold</b> '+t.unitsSold+'/'+t.unitsSupplied+' ('+(t.sellThrough*100).toFixed(1)+'%) &nbsp; <b>Welfare</b> '+t.welfare+' c</p>';
+  $('tbl').tBodies[0].innerHTML=j.results.map(r=>{
+    const w=Object.entries(r.allocations).map(e=>e[0]+'x'+e[1]).join(' ');
+    return '<tr><td>'+r.good+'</td><td>'+r.supply+'</td><td>'+r.price+'</td><td>'+(r.supply-r.unsold)+'</td><td>'+r.unsold+'</td><td>'+r.rationed+'</td><td>'+r.revenue+'</td><td>'+r.efficiency.toFixed(3)+'</td><td style="text-align:left;max-width:360px;font-size:11px">'+w+'</td></tr>';}).join('');
+  $('charts').innerHTML=j.results.map(chart).join('');
+}
+$('run').onclick=run;run();
+</script></body></html>

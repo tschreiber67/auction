@@ -1,0 +1,12 @@
+{
+  "name": "dynamic-auction-simulator",
+  "version": "0.1.0",
+  "description": "Seeded synthetic multi-unit auction simulator (ascending clock and sealed uniform price)",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  }
+}

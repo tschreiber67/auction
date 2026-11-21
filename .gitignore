@@ -1,0 +1,11 @@
+node_modules/
+scratch/
+*.zip
+*.log
+npm-debug.log*
+.env
+.DS_Store
+Thumbs.db
+coverage/
+.vscode/
+.idea/
